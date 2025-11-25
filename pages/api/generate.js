@@ -1,6 +1,6 @@
 // /pages/api/generate.js
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Load Gemini API Key from environment variable
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
