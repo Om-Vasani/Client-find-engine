@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  output: "standalone",     // FIXES vercel routes-manifest issue
+  output: undefined,        // ❗ REMOVE "standalone"
 };
 
 module.exports = nextConfig;
