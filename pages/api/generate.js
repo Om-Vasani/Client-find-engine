@@ -1,9 +1,10 @@
-// /pages/api/generate.js
+// /pages/api/generate-openai.js
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { OpenAI } from "openai";
 
-// Load Gemini API Key from environment variable
-const ai = new GoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+// Load OpenAI API Key from environment variable
+// *** તમારે Vercel માં OPENAI_API_KEY સેટ કરવી પડશે ***
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); 
 
 // Your high-ticket service offer
 const SERVICE_OFFER =
@@ -16,63 +17,52 @@ export default async function handler(req, res) {
 
   const { clientName, companyName, clientIssue } = req.body;
 
-  // If input missing → use default test data (only for testing)
-  if (!clientName || !companyName || !clientIssue) {
-    const testData = {
-      clientName: "Test Client",
-      companyName: "Test Company",
-      clientIssue: "High costs due to manual data entry.",
-    };
-
-    const prompt = createPrompt(
-      testData.clientName,
-      testData.companyName,
-      testData.clientIssue
-    );
-
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
-
-      return res.status(200).json({
-        success: true,
-        messageContent: response.text,
+  // Input missing logic remains the same...
+  const promptData = (!clientName || !companyName || !clientIssue)
+    ? {
+        clientName: "Test Client",
+        companyName: "Test Company",
+        clientIssue: "High costs due to manual data entry.",
         note: "Using default test data as input was missing.",
-      });
-    } catch (error) {
-      console.error("Gemini API Error:", error);
-      return res.status(500).json({
-        error:
-          "Gemini API call failed. Check your Vercel GEMINI_API_KEY setting.",
-      });
-    }
-  }
+      }
+    : { clientName, companyName, clientIssue, note: null };
 
-  // If all inputs exist → generate real prompt
-  const prompt = createPrompt(clientName, companyName, clientIssue);
+  const prompt = createPrompt(
+    promptData.clientName,
+    promptData.companyName,
+    promptData.clientIssue
+  );
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    // *** OpenAI API Call Method ***
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // અથવા "gpt-4" વાપરી શકાય
+      messages: [
+        { role: "user", content: prompt }, // Prompt ને user message તરીકે મોકલો
+      ],
+      temperature: 0.7, // સૃજનાત્મકતા (Creativity) માટે
     });
+
+    const messageContent = completion.choices[0].message.content;
 
     res.status(200).json({
       success: true,
       client: companyName,
-      messageContent: response.text,
+      messageContent: messageContent,
+      note: promptData.note,
     });
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("OpenAI API Error:", error);
+    // *** ભૂલને અહીં બદલવી ***
     res.status(500).json({
-      error: "Gemini API call failed. Check your Vercel GEMINI_API_KEY setting.",
+      error: "OpenAI API call failed. Check your Vercel OPENAI_API_KEY setting.",
     });
   }
 }
 
+// Prompt function remains the same
 function createPrompt(name, company, issue) {
+//... (Same logic as your original function)
   return `
 You are an extremely successful high-ticket sales consultant.
 Your goal is to help a client who urgently needs to secure a $3,000 USD advance TODAY.
