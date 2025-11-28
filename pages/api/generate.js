@@ -2,11 +2,7 @@
 
 import OpenAI from "openai";
 
-const SERVICE_OFFER =
-  "30-day AI Automation Setup to reduce workload, speed up operations, and guarantee 25% faster lead response time. Advance Fee: $3,000 USD.";
-
 export default async function handler(req, res) {
-  // --- Allow GET request for browser testing ---
   if (req.method === "GET") {
     return res.status(200).json({
       status: "OK",
@@ -15,12 +11,10 @@ export default async function handler(req, res) {
     });
   }
 
-  // --- Block other methods ---
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  // --- POST Body Validate ---
   const { clientName, companyName, clientIssue } = req.body;
 
   if (!clientName || !companyName || !clientIssue) {
@@ -33,8 +27,36 @@ export default async function handler(req, res) {
     });
 
     const prompt = `
-You are an aggressive high-ticket sales closer.
+Write a short aggressive high-ticket email.
 
+Client: ${clientName}
+Company: ${companyName}
+Problem: ${clientIssue}
+
+Offer: 30-day AI automation setup. $3000 advance.
+`;
+
+    const completion = await openai.responses.create({
+      model: "gpt-4o-mini",
+      input: prompt,
+    });
+
+    const text = completion.output[0].content[0].text;
+
+    return res.status(200).json({
+      success: true,
+      messageContent: text,
+    });
+
+  } catch (err) {
+    console.error("OpenAI Error:", err);
+    
+    return res.status(500).json({
+      error: "AI Message Generation Failed. Check OPENAI_API_KEY.",
+      details: err.message,
+    });
+  }
+}
 Write a short, personalized, urgent cold email that closes a $3,000 advance payment today.
 
 Client Name: ${clientName}
