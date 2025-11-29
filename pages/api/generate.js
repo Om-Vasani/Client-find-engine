@@ -1,106 +1,109 @@
 // pages/api/generate.js
 import axios from "axios";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  // -----------------------------------
-  // 🔹 ALLOW GET REQUESTS
-  // -----------------------------------
-  if (req.method === "GET") {
-    return res.status(200).json({
-      message: "API Working ✔ — Use POST for actions",
-      endpoints: {
-        scrape: "POST /api/generate { action:'scrape', city, category }",
-        aiMessage: "POST /api/generate { action:'aiMessage', business:{} }",
-        send: "POST /api/generate { action:'send', phone, message }"
-      }
-    });
-  }
-
-  // -----------------------------------
-  // 🔹 ONLY POST ALLOWED FOR ACTIONS
-  // -----------------------------------
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method Not Allowed — Use GET for testing, POST for actions"
-    });
-  }
-
   try {
-    const { action, city, category, business, phone } = req.body;
-
-    // -----------------------------
-    // 🔍 SCRAPE GOOGLE MAPS
-    // -----------------------------
-    if (action === "scrape") {
-      const query = `${category} in ${city}`;
-      const url = `https://serpapi.com/search.json?engine=google_maps&q=${query}&api_key=${process.env.SERPAPI_KEY}`;
-
-      const r = await axios.get(url);
-      const data = r.data.local_results || [];
-
-      const leads = data.map((b) => ({
-        name: b.title,
-        address: b.address,
-        phone: b.phone,
-        rating: b.rating,
-        website: b.website
-      }));
-
-      return res.json({ leads });
+    // -------------------------
+    // GET METHOD
+    // -------------------------
+    if (req.method === "GET") {
+      // Example: return a simple status or list of supported actions
+      return res.json({
+        status: "API is running",
+        supportedActions: ["scrape", "aiMessage", "send"],
+      });
     }
 
-    // -----------------------------
-    // 🤖 AI MESSAGE GENERATION
-    // -----------------------------
-    if (action === "aiMessage") {
-      const prompt = `
-Write a high-converting WhatsApp message for:
-Business: ${business.name}
+    // -------------------------
+    // POST METHOD
+    // -------------------------
+    if (req.method === "POST") {
+      const { action, city, category, business, phone } = req.body;
+
+      // -------------------------
+      // 1) GOOGLE MAPS SCRAPER
+      // -------------------------
+      if (action === "scrape") {
+        const q = `${category} in ${city}`;
+        const url = `https://serpapi.com/search.json?engine=google_maps&q=${q}&api_key=${process.env.SERPAPI_KEY}`;
+        const response = await axios.get(url);
+        const results = response.data.local_results || [];
+
+        const leads = results.map((b) => ({
+          name: b.title,
+          rating: b.rating,
+          address: b.address,
+          phone: b.phone,
+          website: b.website,
+        }));
+
+        return res.json({ leads });
+      }
+
+      // -------------------------
+      // 2) AI MESSAGE GENERATION
+      // -------------------------
+      if (action === "aiMessage") {
+        const prompt = `
+Business Info:
+Name: ${business.name}
 Address: ${business.address}
 Rating: ${business.rating}
-      `;
 
-      const r = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }]
-        },
-        {
-          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }
+Write a short, high-converting WhatsApp outreach message for selling digital services.
+`;
+        let message = "";
+
+        try {
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const result = await model.generateContent(prompt);
+          message = result.response.text();
+        } catch (err) {
+          console.log("Gemini failed → using OpenAI...");
+          const aiRes = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+            },
+            {
+              headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+            }
+          );
+          message = aiRes.data.choices[0].message.content;
         }
-      );
 
-      const msg = r.data.choices[0].message.content;
-      return res.json({ message: msg });
-    }
+        return res.json({ message });
+      }
 
-    // -----------------------------
-    // 📲 SEND VIA WHATSAPP (WATI)
-    // -----------------------------
-    if (action === "send") {
-      const r = await axios.post(
-        "https://app-server.wati.io/api/v1/sendMessage",
-        {
-          phoneNumber: phone,
-          messageText: req.body.message
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.WATI_KEY}`
+      // -------------------------
+      // 3) SEND MESSAGE (WATI)
+      // -------------------------
+      if (action === "send") {
+        const send = await axios.post(
+          "https://app-server.wati.io/api/v1/sendMessage",
+          {
+            messageText: req.body.message,
+            phoneNumber: phone,
+          },
+          {
+            headers: { Authorization: `Bearer ${process.env.WATI_KEY}` },
           }
-        }
-      );
+        );
 
-      return res.json({ status: "sent", data: r.data });
+        return res.json({ status: "sent", data: send.data });
+      }
+
+      return res.status(400).json({ error: "Invalid action" });
     }
 
-    return res.status(400).json({ error: "Invalid Action" });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({
-      error: "Server Error",
-      details: e.message
-    });
+    // If method is not GET or POST
+    res.status(405).json({ error: "Method Not Allowed" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: "Server Error", details: error.message });
   }
-        }
+                }
