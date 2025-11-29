@@ -1,59 +1,79 @@
-// /pages/api/generate.js
-
-import OpenAI from "openai";
+// pages/api/generate.js
+import axios from "axios";
 
 export default async function handler(req, res) {
-  if (req.method === "GET") {
-    return res.status(200).json({
-      status: "OK",
-      message: "API Running Successfully. Use POST to generate AI message.",
-      usage: "POST /api/generate with JSON body: { clientName, companyName, clientIssue }",
-    });
-  }
-
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
-
-  const { clientName, companyName, clientIssue } = req.body;
-
-  if (!clientName || !companyName || !clientIssue) {
-    return res.status(400).json({ error: "Missing required fields." });
+    return res.status(400).json({ error: "POST Only" });
   }
 
   try {
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const { action, city, category, business, phone } = req.body;
 
-    const prompt = `You are an aggressive high-ticket sales closer.
-Write a short cold email that forces the client to make a $3,000 advance payment today.
+    // ----------- SCRAPER ----------
+    if (action === "scrape") {
+      const q = `${category} in ${city}`;
 
-Client Name: ${clientName}
-Company: ${companyName}
-Main Problem: ${clientIssue}
+      const url = `https://serpapi.com/search.json?engine=google_maps&q=${q}&api_key=${process.env.SERPAPI_KEY}`;
 
-Offer: 30-day AI Automation Setup with guaranteed 25% faster operations.
+      const r = await axios.get(url);
+      const data = r.data.local_results || [];
 
-Write in a powerful, urgent, closing tone.`;
+      const leads = data.map((b) => ({
+        name: b.title,
+        rating: b.rating,
+        address: b.address,
+        phone: b.phone,
+        website: b.website,
+      }));
 
-    const completion = await openai.responses.create({
-      model: "gpt-4o-mini",
-      input: prompt,
-    });
+      return res.json({ leads });
+    }
 
-    const text = completion.output[0].content[0].text;
+    // ----------- AI MESSAGE ----------
+    if (action === "aiMessage") {
+      const prompt = `
+Write a short WhatsApp cold message for:
+Business: ${business.name}
+Address: ${business.address}
+Rating: ${business.rating}
+      `;
 
-    return res.status(200).json({
-      success: true,
-      messageContent: text,
-    });
+      const aiRes = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+        },
+        {
+          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        }
+      );
 
-  } catch (err) {
-    console.error("OpenAI Error:", err);
-    return res.status(500).json({
-      error: "AI Message Generation Failed. Check OPENAI_API_KEY.",
-      details: err.message,
-    });
+      const msg = aiRes.data.choices[0].message.content;
+      return res.json({ message: msg });
+    }
+
+    // ----------- WHATSAPP SEND ----------
+    if (action === "send") {
+      const resp = await axios.post(
+        "https://app-server.wati.io/api/v1/sendMessage",
+        {
+          messageText: req.body.message,
+          phoneNumber: phone,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.WATI_KEY}`,
+          },
+        }
+      );
+
+      return res.json({ status: "sent", data: resp.data });
+    }
+
+    res.status(400).json({ error: "Invalid action" });
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({ error: "Server Error", details: e.message });
   }
-      }
+  }
