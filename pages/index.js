@@ -47,7 +47,6 @@ export default function Home() {
           <option value="Gujarat">Gujarat</option>
           <option value="India">India</option>
           <option value="USA">USA</option>
-          <option value="UK">UK</option>
           <option value="Worldwide">Worldwide</option>
         </select>
       </div>
@@ -57,60 +56,24 @@ export default function Home() {
       </button>
 
       <div style={{ marginTop: 30 }}>
-        {clients.length > 0 && (
-          <>
-            <h2>🔥 {clients.length} HOT CLIENTS FOUND</h2>
-            <ul>
-              {clients.map(c => (
-                <li key={c.id} style={{ marginBottom: 10 }}>
-                  <strong>{c.name}</strong> – {c.address || "No Address"} <br />
-                  Phone: {c.phone || "N/A"} <br />
-                  Website: {c.website || "N/A"} <br />
-                  Message: {c.message} <br />
-                  <button onClick={() => navigator.clipboard.writeText(c.message)}>
-                    COPY MESSAGE
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}          <option>Real Estate</option>
-        </select>
-      </div>
-
-      <div style={{ marginBottom: "10px" }}>
-        <label>Location: </label>
-        <select value={location} onChange={(e) => setLocation(e.target.value)}>
-          <option>Surat</option>
-          <option>Gujarat</option>
-          <option>India</option>
-          <option>USA</option>
-          <option>Worldwide</option>
-        </select>
-      </div>
-
-      <button onClick={findClients} disabled={loading}>
-        {loading ? "Fetching..." : "FIND CLIENTS"}
-      </button>
-
-      <div style={{ marginTop: "20px" }}>
         {clients.length > 0 ? (
-          clients.map((c, idx) => (
-            <div key={idx} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
-              <h3>{c.name}</h3>
-              <p>{c.address}</p>
-              <p>{c.phone}</p>
-              {c.website && <p>Website: {c.website}</p>}
-            </div>
-          ))
+          <ul>
+            {clients.map(c => (
+              <li key={c.id} style={{ marginBottom: 10 }}>
+                <strong>{c.name}</strong> – {c.address || "No Address"} <br />
+                Phone: {c.phone || "N/A"} <br />
+                Website: {c.website || "N/A"} <br />
+                Message: {c.message} <br />
+                <button onClick={() => navigator.clipboard.writeText(c.message)}>
+                  COPY MESSAGE
+                </button>
+              </li>
+            ))}
+          </ul>
         ) : (
           <p>No clients found yet</p>
         )}
       </div>
     </div>
   );
-}
+  }
