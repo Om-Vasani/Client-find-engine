@@ -1,79 +1,126 @@
+// pages/index.js
 import { useState } from "react";
-import axios from "axios";
 
 export default function Home() {
-  const [niche, setNiche] = useState("");
-  const [location, setLocation] = useState("");
-  const [clients, setClients] = useState([]);
+  const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const findClients = async () => {
-    if (!niche || !location) return alert("Please select niche and location");
+  const fetchLeads = async () => {
     setLoading(true);
-    try {
-      const res = await axios.get("/api/generate", { params: { niche, location } });
-      setClients(res.data.clients);
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
+    const r = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "scrape",
+        city,
+        category,
+      }),
+    });
+
+    const data = await r.json();
+    setLeads(data.leads || []);
+    setLoading(false);
+  };
+
+  const handleSend = async (lead) => {
+    // 1) AI MESSAGE
+    const msgRes = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "aiMessage",
+        business: lead,
+      }),
+    });
+
+    const aiData = await msgRes.json();
+
+    // 2) SEND via WhatsApp
+    await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "send",
+        phone: lead.phone,
+        message: aiData.message,
+      }),
+    });
+
+    alert("Message Sent ✔");
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: "auto", padding: 20 }}>
-      <h1>🔥 One-Click Client Finder</h1>
+    <div style={{ padding: 20 }}>
+      <h1 style={{ marginBottom: 20 }}>Client Find Engine</h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <label>Niche: </label>
-        <select value={niche} onChange={e => setNiche(e.target.value)}>
-          <option value="">Select Niche</option>
-          <option value="Website">Website</option>
-          <option value="Branding">Branding</option>
-          <option value="AI Automation">AI Automation</option>
-          <option value="Local Business">Local Business</option>
-          <option value="E-commerce">E-commerce</option>
-          <option value="Real Estate">Real Estate</option>
-        </select>
-      </div>
+      <input
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+        placeholder="City (ex: Ahmedabad)"
+        style={{
+          padding: 12,
+          width: "100%",
+          border: "1px solid #ccc",
+          marginBottom: 10,
+        }}
+      />
 
-      <div style={{ marginBottom: 20 }}>
-        <label>Location: </label>
-        <select value={location} onChange={e => setLocation(e.target.value)}>
-          <option value="">Select Location</option>
-          <option value="Surat">Surat</option>
-          <option value="Gujarat">Gujarat</option>
-          <option value="India">India</option>
-          <option value="USA">USA</option>
-          <option value="UK">UK</option>
-          <option value="Worldwide">Worldwide</option>
-        </select>
-      </div>
+      <input
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        placeholder="Category (Salon, Spa, Dentist...)"
+        style={{
+          padding: 12,
+          width: "100%",
+          border: "1px solid #ccc",
+          marginBottom: 10,
+        }}
+      />
 
-      <button onClick={findClients} disabled={loading}>
-        {loading ? "Searching..." : "FIND CLIENTS"}
+      <button
+        onClick={fetchLeads}
+        style={{
+          padding: 12,
+          background: "black",
+          color: "white",
+          width: "100%",
+        }}
+      >
+        Find Leads
       </button>
 
-      <div style={{ marginTop: 30 }}>
-        {clients.length > 0 && (
-          <>
-            <h2>🔥 {clients.length} HOT CLIENTS FOUND</h2>
-            <ul>
-              {clients.map(c => (
-                <li key={c.id} style={{ marginBottom: 10 }}>
-                  <strong>{c.name}</strong> – {c.address || "No Address"} <br />
-                  Phone: {c.phone || "N/A"} <br />
-                  Website: {c.website || "N/A"} <br />
-                  Message: {c.message} <br />
-                  <button onClick={() => navigator.clipboard.writeText(c.message)}>
-                    COPY MESSAGE
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+      {loading && <p>Loading...</p>}
+
+      {leads.map((lead, idx) => (
+        <div
+          key={idx}
+          style={{
+            border: "1px solid #ddd",
+            padding: 15,
+            borderRadius: 8,
+            marginTop: 12,
+          }}
+        >
+          <h3>{lead.name}</h3>
+          <p>{lead.address}</p>
+          <p>📞 {lead.phone || "No phone"}</p>
+
+          <button
+            onClick={() => handleSend(lead)}
+            style={{
+              padding: 10,
+              background: "green",
+              color: "white",
+              marginTop: 10,
+              width: "100%",
+            }}
+          >
+            Send AI Message
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
