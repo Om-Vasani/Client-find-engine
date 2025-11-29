@@ -1,22 +1,49 @@
-# Client-find-engine
-# Client Find Engine
+# 🚀 Client Find Engine — AI Powered Lead Finder + WhatsApp Outreach  
+Built with **Next.js 14**, **Gemini AI**, **OpenAI**, **SerpAPI**, and **WATI WhatsApp API**
 
-Client Find Engine is a lightweight **Next.js + Google Gemini AI** powered tool  
-that generates high-impact, personalized sales messages for fast client outreach.
+This tool allows you to:
 
-This tool helps founders, agencies, and sales teams produce  
-**high-ticket conversion messages instantly** based on client name, company, and pain point.
+✅ Find real business leads from Google Maps  
+✅ Auto-generate high-converting outreach messages  
+✅ Auto-send messages to WhatsApp  
+✅ Run everything inside **2 files only**  
+- /pages/api/generate.js → Backend  
+- /pages/index.js → Frontend UI  
 
----
-
-## 🚀 Tech Stack
-
-- **Next.js 14**
-- **React 18**
-- **Google GenAI (@google/genai)**
-- **Node.js API Routes**
-- **Vercel Deployment Compatible**
+Fully deployable on **Vercel**.
 
 ---
 
 ## 📁 Project Structure
+
+client-find-engine  
+│  
+├── pages/  
+│   ├── api/  
+│   │   └── generate.js        ← backend (scraper + AI + WhatsApp)  
+│   └── index.js               ← frontend UI  
+│  
+├── package.json  
+├── next.config.js  
+├── .env.local (create manually)  
+└── README.md  
+
+---
+
+## 🧠 Features
+
+### 🔍 Lead Finder  
+- Scrapes Google Maps via SERPAPI  
+- Extracts business name, address, rating, phone, website  
+
+### 🤖 AI Message Generator  
+Uses **Gemini 1.5** (fallback → OpenAI GPT-4o-mini)
+
+### 📲 WhatsApp Sender  
+Sends messages to any number via **WATI API**
+
+---
+
+## 🔧 Environment Variables
+
+Create `.env.local`:
