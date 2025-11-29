@@ -1,133 +1,104 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export default function Home() {
-  const [inputData, setInputData] = useState({
-    clientName: "John Doe",
-    companyName: "TechCorp Solutions",
-    clientIssue: "High overhead costs due to slow manual processes.",
-  });
-
-  const [message, setMessage] = useState("");
+  const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-    setInputData({ ...inputData, [e.target.name]: e.target.value });
+  const fetchLeads = async () => {
+    setLoading(true);
+    const r = await fetch("http://localhost:5000/api/scrape", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ city, category }),
+    });
+
+    const data = await r.json();
+    setLeads(data.leads);
+    setLoading(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-    setError("");
+  const sendAIMessage = async (lead) => {
+    const r = await fetch("http://localhost:5000/api/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ business: lead }),
+    });
+    const data = await r.json();
 
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(inputData),
-      });
+    const s = await fetch("http://localhost:5000/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: lead.phone,
+        message: data.message,
+      }),
+    });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.messageContent);
-      } else {
-        setError(data.error || "Unknown error occurred.");
-      }
-    } catch (err) {
-      setError("Network or system error.");
-    } finally {
-      setLoading(false);
-    }
+    alert("Message Sent ✔");
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
-      <h1>🎯 AI Sales Message Generator</h1>
-      <p>Generate aggressive high-ticket closing messages for clients.</p>
+    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
+      <h1>Client Finder AI</h1>
 
-      <form
-        onSubmit={handleSubmit}
+      <input
+        placeholder="City"
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+        style={{ padding: 10, margin: 5, width: "100%" }}
+      />
+
+      <input
+        placeholder="Business Category (ex: Salon, Spa)"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        style={{ padding: 10, margin: 5, width: "100%" }}
+      />
+
+      <button
+        onClick={fetchLeads}
         style={{
-          display: "grid",
-          gap: "10px",
-          padding: "20px",
-          border: "1px solid #ccc",
+          padding: 12,
+          marginTop: 10,
+          width: "100%",
+          background: "black",
+          color: "white",
         }}
       >
-        <label>
-          Client Name:
-          <input
-            type="text"
-            name="clientName"
-            value={inputData.clientName}
-            onChange={handleChange}
-            style={{ width: "100%", padding: "8px" }}
-            required
-          />
-        </label>
+        Find Leads
+      </button>
 
-        <label>
-          Company Name:
-          <input
-            type="text"
-            name="companyName"
-            value={inputData.companyName}
-            onChange={handleChange}
-            style={{ width: "100%", padding: "8px" }}
-            required
-          />
-        </label>
+      {loading && <p>Loading...</p>}
 
-        <label>
-          Client Problem:
-          <textarea
-            name="clientIssue"
-            value={inputData.clientIssue}
-            onChange={handleChange}
-            style={{ width: "100%", padding: "8px" }}
-            required
-          ></textarea>
-        </label>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px",
-            backgroundColor: loading ? "#aaa" : "blue",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Generating..." : "Generate AI Message"}
-        </button>
-      </form>
-
-      {error && (
-        <div style={{ color: "red", marginTop: "15px" }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {message && (
+      {leads.map((l, index) => (
         <div
+          key={index}
           style={{
-            marginTop: "20px",
-            border: "2px solid green",
-            padding: "15px",
-            backgroundColor: "#e6ffe6",
+            padding: 15,
+            border: "1px solid #ccc",
+            marginTop: 10,
+            borderRadius: 8,
           }}
         >
-          <h3>✅ AI Generated Sales Message:</h3>
-          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
-            {message}
-          </pre>
-          <p>Send this message to the client immediately.</p>
+          <h3>{l.name}</h3>
+          <p>{l.address}</p>
+          <p>📞 {l.phone || "No phone"}</p>
+          <button
+            onClick={() => sendAIMessage(l)}
+            style={{
+              padding: 10,
+              background: "green",
+              color: "white",
+              marginTop: 5,
+              width: "100%",
+            }}
+          >
+            Send AI Message
+          </button>
         </div>
-      )}
+      ))}
     </div>
   );
 }
