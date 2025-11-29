@@ -1,3 +1,4 @@
+// pages/index.js
 import { useState } from "react";
 
 export default function Home() {
@@ -8,31 +9,43 @@ export default function Home() {
 
   const fetchLeads = async () => {
     setLoading(true);
-    const r = await fetch("http://localhost:5000/api/scrape", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ city, category }),
-    });
 
-    const data = await r.json();
-    setLeads(data.leads);
-    setLoading(false);
-  };
-
-  const sendAIMessage = async (lead) => {
-    const r = await fetch("http://localhost:5000/api/message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ business: lead }),
-    });
-    const data = await r.json();
-
-    const s = await fetch("http://localhost:5000/api/send", {
+    const r = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        action: "scrape",
+        city,
+        category,
+      }),
+    });
+
+    const data = await r.json();
+    setLeads(data.leads || []);
+    setLoading(false);
+  };
+
+  const sendToLead = async (lead) => {
+    // 1) Generate AI message
+    const ai = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "aiMessage",
+        business: lead,
+      }),
+    });
+
+    const aiData = await ai.json();
+
+    // 2) Send message via WhatsApp
+    await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "send",
         phone: lead.phone,
-        message: data.message,
+        message: aiData.message,
       }),
     });
 
@@ -40,28 +53,37 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
+    <div style={{ padding: 20 }}>
       <h1>Client Finder AI</h1>
 
       <input
-        placeholder="City"
         value={city}
         onChange={(e) => setCity(e.target.value)}
-        style={{ padding: 10, margin: 5, width: "100%" }}
+        placeholder="Enter City"
+        style={{
+          padding: 12,
+          width: "100%",
+          marginBottom: 10,
+          border: "1px solid #ccc",
+        }}
       />
 
       <input
-        placeholder="Business Category (ex: Salon, Spa)"
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        style={{ padding: 10, margin: 5, width: "100%" }}
+        placeholder="Business Category (Salon, Spa...)"
+        style={{
+          padding: 12,
+          width: "100%",
+          marginBottom: 10,
+          border: "1px solid #ccc",
+        }}
       />
 
       <button
         onClick={fetchLeads}
         style={{
           padding: 12,
-          marginTop: 10,
           width: "100%",
           background: "black",
           color: "white",
@@ -72,27 +94,28 @@ export default function Home() {
 
       {loading && <p>Loading...</p>}
 
-      {leads.map((l, index) => (
+      {leads.map((l, i) => (
         <div
-          key={index}
+          key={i}
           style={{
+            marginTop: 15,
             padding: 15,
-            border: "1px solid #ccc",
-            marginTop: 10,
+            border: "1px solid #ddd",
             borderRadius: 8,
           }}
         >
           <h3>{l.name}</h3>
           <p>{l.address}</p>
-          <p>📞 {l.phone || "No phone"}</p>
+          <p>📞 {l.phone || "No phone available"}</p>
+
           <button
-            onClick={() => sendAIMessage(l)}
+            onClick={() => sendToLead(l)}
             style={{
               padding: 10,
+              width: "100%",
               background: "green",
               color: "white",
-              marginTop: 5,
-              width: "100%",
+              marginTop: 10,
             }}
           >
             Send AI Message
@@ -101,4 +124,4 @@ export default function Home() {
       ))}
     </div>
   );
-}
+          }
