@@ -9,7 +9,6 @@ export default function Home() {
 
   const fetchLeads = async () => {
     setLoading(true);
-
     const r = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,9 +24,9 @@ export default function Home() {
     setLoading(false);
   };
 
-  const sendToLead = async (lead) => {
-    // 1) Generate AI message
-    const ai = await fetch("/api/generate", {
+  const handleSend = async (lead) => {
+    // 1) AI MESSAGE
+    const msgRes = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -36,9 +35,9 @@ export default function Home() {
       }),
     });
 
-    const aiData = await ai.json();
+    const aiData = await msgRes.json();
 
-    // 2) Send message via WhatsApp
+    // 2) SEND via WhatsApp
     await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -54,29 +53,29 @@ export default function Home() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Client Finder AI</h1>
+      <h1 style={{ marginBottom: 20 }}>Client Find Engine</h1>
 
       <input
         value={city}
         onChange={(e) => setCity(e.target.value)}
-        placeholder="Enter City"
+        placeholder="City (ex: Ahmedabad)"
         style={{
           padding: 12,
           width: "100%",
-          marginBottom: 10,
           border: "1px solid #ccc",
+          marginBottom: 10,
         }}
       />
 
       <input
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        placeholder="Business Category (Salon, Spa...)"
+        placeholder="Category (Salon, Spa, Dentist...)"
         style={{
           padding: 12,
           width: "100%",
-          marginBottom: 10,
           border: "1px solid #ccc",
+          marginBottom: 10,
         }}
       />
 
@@ -84,9 +83,9 @@ export default function Home() {
         onClick={fetchLeads}
         style={{
           padding: 12,
-          width: "100%",
           background: "black",
           color: "white",
+          width: "100%",
         }}
       >
         Find Leads
@@ -94,28 +93,28 @@ export default function Home() {
 
       {loading && <p>Loading...</p>}
 
-      {leads.map((l, i) => (
+      {leads.map((lead, idx) => (
         <div
-          key={i}
+          key={idx}
           style={{
-            marginTop: 15,
-            padding: 15,
             border: "1px solid #ddd",
+            padding: 15,
             borderRadius: 8,
+            marginTop: 12,
           }}
         >
-          <h3>{l.name}</h3>
-          <p>{l.address}</p>
-          <p>📞 {l.phone || "No phone available"}</p>
+          <h3>{lead.name}</h3>
+          <p>{lead.address}</p>
+          <p>📞 {lead.phone || "No phone"}</p>
 
           <button
-            onClick={() => sendToLead(l)}
+            onClick={() => handleSend(lead)}
             style={{
               padding: 10,
-              width: "100%",
               background: "green",
               color: "white",
               marginTop: 10,
+              width: "100%",
             }}
           >
             Send AI Message
@@ -124,4 +123,4 @@ export default function Home() {
       ))}
     </div>
   );
-          }
+    }
