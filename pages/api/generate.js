@@ -3,8 +3,8 @@ import {
     readLogs, writeLogs, 
     readIncome, writeIncome, 
     ensureFiles 
-} from '../lib/db'; 
-import { generateAIContent } from '../lib/ai'; 
+} from '../../lib/db'; 
+import { generateAIContent } from '../../lib/ai'; 
 
 // Constants
 const FOLLOWUP_INTERVALS = [1 * 60 * 60 * 1000, 6 * 60 * 60 * 1000, 24 * 60 * 60 * 1000];
