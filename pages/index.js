@@ -9,7 +9,7 @@ export default function Home() {
   const [sending, setSending] = useState(null);
 
   const findLeads = async () => {
-    if (!city || !keyword) return alert("Please enter city & keyword");
+    if (!city || !keyword) return alert("Enter both fields");
 
     setLoading(true);
     const r = await axios.get(`/api/generate?city=${city}&keyword=${keyword}`);
@@ -25,50 +25,88 @@ export default function Home() {
       name: item.name,
       address: item.address,
       phone: item.phone,
-      keyword
+      keyword,
     });
 
     alert("AI Message:\n\n" + r.data.message);
-
     setSending(null);
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 16 }}>
       <h1 style={{ fontSize: 32, fontWeight: "bold", marginBottom: 20 }}>
         Client Find Engine
       </h1>
 
       <input
-        placeholder="City (Surat)"
+        placeholder="Surat"
         value={city}
         onChange={(e) => setCity(e.target.value)}
-        className="w-full border p-2 mb-2 rounded"
+        style={{
+          width: "100%",
+          border: "1px solid #ccc",
+          padding: 10,
+          borderRadius: 6,
+          marginBottom: 10,
+        }}
       />
 
       <input
-        placeholder="Business Type (Spa, Salon, Gym...)"
+        placeholder="Spa"
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
-        className="w-full border p-2 mb-2 rounded"
+        style={{
+          width: "100%",
+          border: "1px solid #ccc",
+          padding: 10,
+          borderRadius: 6,
+          marginBottom: 10,
+        }}
       />
 
       <button
         onClick={findLeads}
-        className="w-full bg-black text-white py-2 mb-4 rounded"
+        style={{
+          width: "100%",
+          padding: 12,
+          background: "black",
+          color: "white",
+          borderRadius: 6,
+          marginBottom: 20,
+        }}
       >
         {loading ? "Loading..." : "Find Leads"}
       </button>
 
       {results.map((item, index) => (
-        <div key={index} className="border p-4 rounded mb-4 shadow bg-white">
-          <h2 className="text-xl font-semibold">{item.name}</h2>
-          <p className="text-sm mb-2">{item.address}</p>
-          <p className="mb-2">📞 {item.phone || "No phone"}</p>
+        <div
+          key={index}
+          style={{
+            background: "white",
+            padding: 16,
+            borderRadius: 10,
+            border: "1px solid #ddd",
+            marginBottom: 16,
+          }}
+        >
+          <h2 style={{ fontSize: 20, fontWeight: "bold" }}>{item.name}</h2>
+
+          <p style={{ marginTop: 8, marginBottom: 8 }}>{item.address}</p>
+
+          <p style={{ marginBottom: 8 }}>
+            📞 {item.phone ? item.phone : "No phone"}
+          </p>
 
           <button
             onClick={() => sendMessage(item, index)}
-            className="w-full bg-green-600 text-white py-2 rounded"
+            style={{
+              width: "100%",
+              padding: 12,
+              background: "#0a8f2e",
+              color: "white",
+              borderRadius: 6,
+              fontSize: 16,
+            }}
           >
             {sending === index ? "Sending..." : "Send AI Message"}
           </button>
@@ -76,40 +114,4 @@ export default function Home() {
       ))}
     </div>
   );
-          }ual Withdraw Request</h3>   
-                        <input placeholder="Amount" value={withdrawAmount} onChange={(e)=>setWithdrawAmount(e.target.value)} className="w-full border p-2 mb-2 rounded" />   
-                        <input placeholder="UPI ID (example@bank)" value={upi} onChange={(e)=>setUpi(e.target.value)} className="w-full border p-2 mb-2 rounded" />   
-                        <button onClick={requestWithdraw} className="w-full bg-purple-600 text-white py-2 rounded">Request Withdraw</button>   
-                        <div className="mt-4 text-sm text-gray-600">   
-                            Note: MANUAL TRANSFER REQUIRED.  
-                        </div>   
-                    </aside>   
-                </section>
-
-                <section className="mt-6 bg-white p-6 rounded shadow">
-                    <h2 className="text-xl font-semibold mb-3">Recent Logs</h2>
-
-                    <div className="space-y-2 max-h-80 overflow-y-auto">
-                        {logs.map(l => (
-                            <div key={l.id} className="p-3 border rounded text-sm bg-white">
-                                <div className="font-semibold">{l.business?.name || l.phone}</div>
-                                <div className="text-xs text-gray-500">
-                                    {new Date(l.createdAt).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                    {l.type} — ₹{l.amount}
-                                </div>
-                            </div>
-                        ))}
-
-                        {logs.length === 0 && <div className="text-gray-500 p-4 text-center">No logs yet.</div>}
-                    </div>
-                </section>
-
-                <footer className="mt-6 text-center text-sm text-gray-500">
-                    Deployed on Vercel (Temporary File Storage)
-                </footer>
-            </div>
-        </div>
-    );
-}
+          }
