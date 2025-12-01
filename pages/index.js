@@ -1,40 +1,109 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import axios from "axios";
 
 export default function Home() {
-    const [city] = useState("World-Wide");
-    const [category] = useState("Founder, CEO, Director");
-    const [leads, setLeads] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [income, setIncome] = useState({ today: 0, total: 0, wallet: 0 });
-    const [withdrawAmount, setWithdrawAmount] = useState("");
-    const [upi, setUpi] = useState("");
-    const [logs, setLogs] = useState([]);
+  const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchIncome();
-        fetchLogs();
-    }, []);
-
-    async function fetchIncome() {
-        const r = await fetch("/api/generate");
-        const d = await r.json();
-        setIncome(d.income || { today: 0, total: 0, wallet: 0 });
+  const findLeads = async () => {
+    if (!city || !category) {
+      alert("Enter City & Category");
+      return;
     }
 
-    async function fetchLeads() {
-        setLoading(true);
-        const r = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "scrape" }),
-        });
-        const d = await r.json();
-        setLeads(d.leads || []);
-        setLoading(false);
+    try {
+      setLoading(true);
+      const res = await axios.get(`/api/generate?city=${city}&category=${category}`);
+      setResults(res.data.leads || []);
+    } catch (e) {
+      alert("Error finding leads");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    async function handleSend(lead) {
-        const msgRes = await fetch("/api/generate", {
+  const sendMessage = (phone, name) => {
+    if (!phone) {
+      alert("Phone not available");
+      return;
+    }
+    let msg = `Hello ${name}, I help businesses grow with digital solutions. Can we talk?`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  return (
+    <div style={{ padding: 20, maxWidth: 600, margin: "auto" }}>
+      <h1 style={{ fontSize: 30, fontWeight: "bold", marginBottom: 20 }}>
+        Client Find Engine
+      </h1>
+
+      <input
+        placeholder="City"
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+        style={{ width: "100%", padding: 12, marginBottom: 10, borderRadius: 6, border: "1px solid #ccc" }}
+      />
+
+      <input
+        placeholder="Category (Spa, Salon, Gym...)"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        style={{ width: "100%", padding: 12, marginBottom: 10, borderRadius: 6, border: "1px solid #ccc" }}
+      />
+
+      <button
+        onClick={findLeads}
+        style={{
+          width: "100%",
+          background: "black",
+          color: "white",
+          padding: 14,
+          borderRadius: 6,
+          marginBottom: 20,
+        }}
+      >
+        {loading ? "Loading..." : "Find Leads"}
+      </button>
+
+      {results.map((item, index) => (
+        <div
+          key={index}
+          style={{
+            background: "#fff",
+            padding: 15,
+            borderRadius: 10,
+            marginBottom: 15,
+            boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h2 style={{ fontSize: 20, fontWeight: "bold" }}>{item.name}</h2>
+
+          <p style={{ margin: "5px 0" }}>{item.address}</p>
+
+          <p style={{ fontSize: 16 }}>
+            📞 {item.phone ? item.phone : "No phone"}
+          </p>
+
+          <button
+            onClick={() => sendMessage(item.phone, item.name)}
+            style={{
+              width: "100%",
+              background: "green",
+              color: "white",
+              padding: 12,
+              borderRadius: 6,
+              marginTop: 10,
+            }}
+          >
+            Send AI Message
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+  }        const msgRes = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "aiMessage", business: lead }),
