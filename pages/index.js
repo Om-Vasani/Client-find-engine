@@ -1,117 +1,136 @@
+// pages/index.js
 import { useState } from "react";
-import axios from "axios";
 
 export default function Home() {
   const [city, setCity] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [results, setResults] = useState([]);
+  const [category, setCategory] = useState("");
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(null);
 
-  const findLeads = async () => {
-    if (!city || !keyword) return alert("Enter both fields");
-
+  const fetchLeads = async () => {
     setLoading(true);
-    const r = await axios.get(`/api/generate?city=${city}&keyword=${keyword}`);
-    setResults(r.data.results || []);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "scrape",
+          city,
+          category,
+        }),
+      });
+
+      const data = await res.json();
+      setLeads(data.leads || []);
+    } catch (err) {
+      console.error(err);
+      alert("Error fetching leads");
+    }
     setLoading(false);
   };
 
-  const sendMessage = async (item, index) => {
-    setSending(index);
+  const handleSend = async (lead) => {
+    try {
+      // 1) AI MESSAGE
+      const msgRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "aiMessage",
+          business: lead,
+        }),
+      });
 
-    const r = await axios.post("/api/generate", {
-      mode: "message",
-      name: item.name,
-      address: item.address,
-      phone: item.phone,
-      keyword,
-    });
+      const aiData = await msgRes.json();
 
-    alert("AI Message:\n\n" + r.data.message);
-    setSending(null);
+      // 2) SEND via WhatsApp
+      await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          phone: lead.phone,
+          message: aiData.message,
+        }),
+      });
+
+      alert("Message Sent ✔");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send message");
+    }
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1 style={{ fontSize: 32, fontWeight: "bold", marginBottom: 20 }}>
-        Client Find Engine
-      </h1>
+    <div style={{ padding: 20 }}>
+      <h1 style={{ marginBottom: 20 }}>Client Find Engine</h1>
 
       <input
-        placeholder="Surat"
         value={city}
         onChange={(e) => setCity(e.target.value)}
+        placeholder="City (ex: Ahmedabad)"
         style={{
+          padding: 12,
           width: "100%",
           border: "1px solid #ccc",
-          padding: 10,
-          borderRadius: 6,
           marginBottom: 10,
         }}
       />
 
       <input
-        placeholder="Spa"
-        value={keyword}
-        onChange={(e) => setKeyword(e.target.value)}
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        placeholder="Category (Salon, Spa, Dentist...)"
         style={{
+          padding: 12,
           width: "100%",
           border: "1px solid #ccc",
-          padding: 10,
-          borderRadius: 6,
           marginBottom: 10,
         }}
       />
 
       <button
-        onClick={findLeads}
+        onClick={fetchLeads}
         style={{
-          width: "100%",
           padding: 12,
           background: "black",
           color: "white",
-          borderRadius: 6,
-          marginBottom: 20,
+          width: "100%",
         }}
       >
-        {loading ? "Loading..." : "Find Leads"}
+        Find Leads
       </button>
 
-      {results.map((item, index) => (
+      {loading && <p>Loading...</p>}
+
+      {leads.map((lead, idx) => (
         <div
-          key={index}
+          key={idx}
           style={{
-            background: "white",
-            padding: 16,
-            borderRadius: 10,
             border: "1px solid #ddd",
-            marginBottom: 16,
+            padding: 15,
+            borderRadius: 8,
+            marginTop: 12,
           }}
         >
-          <h2 style={{ fontSize: 20, fontWeight: "bold" }}>{item.name}</h2>
-
-          <p style={{ marginTop: 8, marginBottom: 8 }}>{item.address}</p>
-
-          <p style={{ marginBottom: 8 }}>
-            📞 {item.phone ? item.phone : "No phone"}
-          </p>
+          <h3>{lead.name}</h3>
+          <p>{lead.address}</p>
+          <p>📞 {lead.phone || "No phone"}</p>
 
           <button
-            onClick={() => sendMessage(item, index)}
+            onClick={() => handleSend(lead)}
             style={{
-              width: "100%",
-              padding: 12,
-              background: "#0a8f2e",
+              padding: 10,
+              background: "green",
               color: "white",
-              borderRadius: 6,
-              fontSize: 16,
+              marginTop: 10,
+              width: "100%",
             }}
           >
-            {sending === index ? "Sending..." : "Send AI Message"}
+            Send AI Message
           </button>
         </div>
       ))}
     </div>
   );
-          }
+  }
