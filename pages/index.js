@@ -3,270 +3,80 @@ import axios from "axios";
 
 export default function Home() {
   const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
+  const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(null);
 
   const findLeads = async () => {
-    if (!city || !category) {
-      alert("Enter City & Category");
-      return;
-    }
+    if (!city || !keyword) return alert("Please enter city & keyword");
 
-    try {
-      setLoading(true);
-      const res = await axios.get(`/api/generate?city=${city}&category=${category}`);
-      setResults(res.data.leads || []);
-    } catch (e) {
-      alert("Error finding leads");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const r = await axios.get(`/api/generate?city=${city}&keyword=${keyword}`);
+    setResults(r.data.results || []);
+    setLoading(false);
   };
 
-  const sendMessage = (phone, name) => {
-    if (!phone) {
-      alert("Phone not available");
-      return;
-    }
-    let msg = `Hello ${name}, I help businesses grow with digital solutions. Can we talk?`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const sendMessage = async (item, index) => {
+    setSending(index);
+
+    const r = await axios.post("/api/generate", {
+      mode: "message",
+      name: item.name,
+      address: item.address,
+      phone: item.phone,
+      keyword
+    });
+
+    alert("AI Message:\n\n" + r.data.message);
+
+    setSending(null);
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 600, margin: "auto" }}>
-      <h1 style={{ fontSize: 30, fontWeight: "bold", marginBottom: 20 }}>
+    <div style={{ padding: 20 }}>
+      <h1 style={{ fontSize: 32, fontWeight: "bold", marginBottom: 20 }}>
         Client Find Engine
       </h1>
 
       <input
-        placeholder="City"
+        placeholder="City (Surat)"
         value={city}
         onChange={(e) => setCity(e.target.value)}
-        style={{ width: "100%", padding: 12, marginBottom: 10, borderRadius: 6, border: "1px solid #ccc" }}
+        className="w-full border p-2 mb-2 rounded"
       />
 
       <input
-        placeholder="Category (Spa, Salon, Gym...)"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        style={{ width: "100%", padding: 12, marginBottom: 10, borderRadius: 6, border: "1px solid #ccc" }}
+        placeholder="Business Type (Spa, Salon, Gym...)"
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        className="w-full border p-2 mb-2 rounded"
       />
 
       <button
         onClick={findLeads}
-        style={{
-          width: "100%",
-          background: "black",
-          color: "white",
-          padding: 14,
-          borderRadius: 6,
-          marginBottom: 20,
-        }}
+        className="w-full bg-black text-white py-2 mb-4 rounded"
       >
         {loading ? "Loading..." : "Find Leads"}
       </button>
 
       {results.map((item, index) => (
-        <div
-          key={index}
-          style={{
-            background: "#fff",
-            padding: 15,
-            borderRadius: 10,
-            marginBottom: 15,
-            boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-          }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: "bold" }}>{item.name}</h2>
-
-          <p style={{ margin: "5px 0" }}>{item.address}</p>
-
-          <p style={{ fontSize: 16 }}>
-            📞 {item.phone ? item.phone : "No phone"}
-          </p>
+        <div key={index} className="border p-4 rounded mb-4 shadow bg-white">
+          <h2 className="text-xl font-semibold">{item.name}</h2>
+          <p className="text-sm mb-2">{item.address}</p>
+          <p className="mb-2">📞 {item.phone || "No phone"}</p>
 
           <button
-            onClick={() => sendMessage(item.phone, item.name)}
-            style={{
-              width: "100%",
-              background: "green",
-              color: "white",
-              padding: 12,
-              borderRadius: 6,
-              marginTop: 10,
-            }}
+            onClick={() => sendMessage(item, index)}
+            className="w-full bg-green-600 text-white py-2 rounded"
           >
-            Send AI Message
+            {sending === index ? "Sending..." : "Send AI Message"}
           </button>
         </div>
       ))}
     </div>
   );
-  }        const msgRes = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "aiMessage", business: lead }),
-        });
-        const msgData = await msgRes.json();
-
-        const sendRes = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "send",
-                phone: lead.Profile_URL,
-                message: msgData.message,
-                business: lead,
-            }),
-        });
-
-        await sendRes.json();
-        await fetchIncome();
-        await fetchLogs();
-        alert("AI Message Sent ✔");
-    }
-
-    async function handleDealClose(lead) {
-        const finalPrice = prompt(`Enter Deal Amount for ${lead.Name}:`);
-        if (!finalPrice || isNaN(Number(finalPrice))) return alert("Invalid Price");
-
-        const r = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "closeDeal",
-                amount: Number(finalPrice),
-                business: lead,
-            }),
-        });
-
-        const d = await r.json();
-        if (d.status === "closed") {
-            alert("Deal Closed!");
-            setLeads(prev => prev.filter(l => l.Profile_URL !== lead.Profile_URL));
-            fetchIncome();
-            fetchLogs();
-        }
-    }
-
-    async function requestWithdraw() {
-        if (!withdrawAmount || !upi) return alert("Amount and UPI required");
-
-        const currentWallet = income.wallet || 0;
-        if (Number(withdrawAmount) > currentWallet)
-            return alert(`Max withdrawable: ₹${currentWallet}`);
-
-        const r = await fetch("/api/withdraw", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: Number(withdrawAmount), upi }),
-        });
-
-        const d = await r.json();
-        if (!d.error) {
-            setWithdrawAmount("");
-            setUpi("");
-            fetchLogs();
-            fetchIncome();
-        }
-        alert(d.message || "Withdraw Requested.");
-    }
-
-    async function fetchLogs() {
-        const r = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "getLogs" }),
-        });
-        const d = await r.json();
-        setLogs(d.logs || []);
-    }
-
-    async function runFollowupsNow() {
-        const r = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "runFollowups" }),
-        });
-        const d = await r.json();
-        alert(`Followups Sent: ${d.results?.length || 0}`);
-        fetchLogs();
-    }
-
-    return (
-        <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
-            <div className="max-w-7xl mx-auto">
-
-                <header className="mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold">🚀 LinkedIn AI Target Hitter</h1>
-                    <p className="text-gray-600">Goal: ₹1,00,000 – ₹1,50,000</p>
-                </header>
-
-                <div className="grid grid-cols-3 gap-4 mb-6 text-center">
-                    <div className="bg-white p-4 rounded shadow">
-                        Today: <div className="text-xl font-bold text-green-600">₹{income.today}</div>
-                    </div>
-                    <div className="bg-white p-4 rounded shadow">
-                        Wallet: <div className="text-xl font-bold text-blue-600">₹{income.wallet}</div>
-                    </div>
-                    <div className="bg-white p-4 rounded shadow">
-                        Total: <div className="text-xl font-bold text-gray-700">₹{income.total}</div>
-                    </div>
-                </div>
-
-                <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white p-6 rounded shadow">
-                        <h2 className="text-xl font-semibold mb-4">Lead Generation & Messaging</h2>
-
-                        <button onClick={fetchLeads} className="bg-black text-white px-4 py-2 rounded mb-4">
-                            Load Leads (Mock)
-                        </button>
-
-                        {loading ? (
-                            <div>Loading…</div>
-                        ) : (
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {leads.map((l, i) => (
-                                    <div key={i} className="p-3 border rounded bg-gray-50">
-                                        <div className="font-semibold">{l.Name}</div>
-                                        <div className="text-xs text-gray-600">{l["Role/Headline"]}</div>
-                                        <div className="text-xs text-blue-500">🔗 {l.Profile_URL}</div>
-
-                                        <div className="flex gap-2 mt-2">
-                                            <button
-                                                onClick={() => handleSend(l)}
-                                                className="bg-green-600 text-white px-3 py-1 rounded text-xs"
-                                            >
-                                                Send Msg 1
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleDealClose(l)}
-                                                className="bg-red-600 text-white px-3 py-1 rounded text-xs"
-                                            >
-                                                Close Deal
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Withdraw + Followups */}
-                    <aside className="bg-white p-6 rounded shadow">   
-                        <h3 className="font-semibold text-xl mb-3">💰 Withdraw & Follow-up Actions</h3>   
-                          
-                        <div className="p-3 border rounded mb-4 bg-yellow-50">  
-                            <h4 className="font-medium text-orange-700 mb-1">Run Follow-ups (Msg 2 & 3)</h4>  
-                             <p className="text-xs text-gray-600 mb-2">Triggers Message 2 (Value) and Message 3 (Closing) for due leads.</p>  
-                             <button onClick={runFollowupsNow} className="w-full bg-orange-500 text-white py-2 rounded">  
-                                Run Followups Now  
-                            </button>  
-                        </div>  
-  
-                        <h3 className="font-medium mb-2 mt-4">Manual Withdraw Request</h3>   
+          }ual Withdraw Request</h3>   
                         <input placeholder="Amount" value={withdrawAmount} onChange={(e)=>setWithdrawAmount(e.target.value)} className="w-full border p-2 mb-2 rounded" />   
                         <input placeholder="UPI ID (example@bank)" value={upi} onChange={(e)=>setUpi(e.target.value)} className="w-full border p-2 mb-2 rounded" />   
                         <button onClick={requestWithdraw} className="w-full bg-purple-600 text-white py-2 rounded">Request Withdraw</button>   
