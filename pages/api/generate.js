@@ -1,28 +1,111 @@
+// pages/api/generate.js
 import axios from "axios";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
   try {
-    const { city, category } = req.query;
+    // -------------------------
+    // GET METHOD
+    // -------------------------
+    if (req.method === "GET") {
+      return res.json({
+        status: "API is running",
+        supportedActions: ["scrape", "aiMessage", "send"],
+      });
+    }
 
-    const q = `${category} in ${city}`;
-    const apiKey = process.env.GOOGLE_API_KEY;
+    // -------------------------
+    // POST METHOD
+    // -------------------------
+    if (req.method === "POST") {
+      const { action, city, category, business, phone, message } = req.body;
 
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
-      q
-    )}&key=${apiKey}`;
+      // -------------------------
+      // 1) GOOGLE MAPS SCRAPER
+      // -------------------------
+      if (action === "scrape") {
+        const q = `${category} in ${city}`;
+        const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(
+          q
+        )}&api_key=${process.env.SERPAPI_KEY}`;
 
-    const response = await axios.get(url);
+        const response = await axios.get(url);
+        const results = response.data.local_results || [];
 
-    const places = response.data.results || [];
+        const leads = results.map((b) => ({
+          name: b.title,
+          rating: b.rating,
+          address: b.address,
+          phone: b.phone,
+          website: b.website,
+        }));
 
-    const leads = places.map((p) => ({
-      name: p.name || "",
-      address: p.formatted_address || "",
-      phone: p.formatted_phone_number || "",
-    }));
+        return res.json({ leads });
+      }
 
-    res.json({ leads });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch leads" });
+      // -------------------------
+      // 2) AI MESSAGE GENERATION
+      // -------------------------
+      if (action === "aiMessage") {
+        const prompt = `
+Business Info:
+Name: ${business.name}
+Address: ${business.address}
+Rating: ${business.rating}
+
+Write a short, high-converting WhatsApp outreach message for selling digital services.
+`;
+
+        let messageText = "";
+
+        try {
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const result = await model.generateContent(prompt);
+          messageText = result.response.text();
+        } catch (err) {
+          console.log("Gemini failed → using OpenAI...", err.message);
+          const aiRes = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+            },
+            {
+              headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+            }
+          );
+          messageText = aiRes.data.choices[0].message.content;
+        }
+
+        return res.json({ message: messageText });
+      }
+
+      // -------------------------
+      // 3) SEND MESSAGE (WATI)
+      // -------------------------
+      if (action === "send") {
+        const send = await axios.post(
+          "https://app-server.wati.io/api/v1/sendMessage",
+          {
+            messageText: message,
+            phoneNumber: phone,
+          },
+          {
+            headers: { Authorization: `Bearer ${process.env.WATI_KEY}` },
+          }
+        );
+
+        return res.json({ status: "sent", data: send.data });
+      }
+
+      return res.status(400).json({ error: "Invalid action" });
+    }
+
+    // If method is not GET or POST
+    res.status(405).json({ error: "Method Not Allowed" });
+  } catch (error) {
+    console.error("API Error:", error);
+    return res.status(500).json({ error: "Server Error", details: error.message });
   }
-}
+    }
