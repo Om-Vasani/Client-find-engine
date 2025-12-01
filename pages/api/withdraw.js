@@ -2,7 +2,7 @@
 import { 
     readWithdrawLogs, writeWithdrawLogs, 
     readIncome, writeIncome 
-} from '../../lib/db'; 
+} from '../lib/db'; 
 
 export default async function handler(req, res) {
     try {
