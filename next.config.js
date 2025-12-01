@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: false,
   experimental: {
-    serverActions: false
+    serverActions: true
   }
 };
 
