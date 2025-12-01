@@ -1,4 +1,4 @@
-// pages/index.js (FINAL UI - Using Mock Leads)
+// pages/index.js (FINAL UI - SYNTAX CORRECTED & CLEANED)
 
 import { useEffect, useState } from "react";
 
@@ -9,7 +9,7 @@ export default function Home() {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(false);
     const [income, setIncome] = useState({ today: 0, total: 0, wallet: 0 });
-    const [price] = useState(50000); // Default deal price
+    const [price] = useState(50000); // Default deal price - Hardcoded in state, not selectable in UI
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [upi, setUpi] = useState("");
     const [logs, setLogs] = useState([]);
@@ -19,15 +19,21 @@ export default function Home() {
         fetchLogs();
     }, []);
 
-    // --- API Handlers ---
+    // --- API Handlers (All functions must be defined here, inside Home) ---
+    
     async function fetchIncome() { 
-        const r = await fetch("/api/generate"); const d = await r.json(); 
+        const r = await fetch("/api/generate"); 
+        const d = await r.json(); 
         setIncome(d.income || { today: 0, total: 0, wallet: 0 }); 
     } 
     
     async function fetchLeads() { 
         setLoading(true); 
-        const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scrape" }), }); 
+        const r = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "scrape" }), 
+        }); 
         const d = await r.json(); 
         setLeads(d.leads || []); // Now loads MOCK_LEADS
         setLoading(false); 
@@ -35,23 +41,46 @@ export default function Home() {
     } 
     
     async function handleSend(lead) { 
-        const msgRes = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "aiMessage", business: lead }), }); 
+        const msgRes = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "aiMessage", business: lead }), 
+        }); 
         const msgData = await msgRes.json(); 
-        const sendRes = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", phone: lead.Profile_URL, message: msgData.message, business: lead }), }); 
+        
+        const sendRes = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "send", phone: lead.Profile_URL, message: msgData.message, business: lead }), 
+        }); 
         const sendData = await sendRes.json();
-        if (sendData.status === "sent") { await fetchIncome(); await fetchLogs(); alert("LinkedIn AI Hook (Msg 1) Sent & Logged ✔"); }
+        
+        if (sendData.status === "sent") { 
+            await fetchIncome(); 
+            await fetchLogs(); 
+            alert("LinkedIn AI Hook (Msg 1) Sent & Logged ✔"); 
+        }
     } 
     
     async function handleDealClose(lead) { 
         const finalPrice = prompt(`Enter Final Closing Price for ${lead.Name}:`);
         if (!finalPrice || isNaN(Number(finalPrice)) || Number(finalPrice) <= 0) return alert("Invalid price entered or cancelled.");
         const amount = Number(finalPrice);
-        const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "closeDeal", amount, business: lead }), }); 
+        
+        const r = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "closeDeal", amount, business: lead }), 
+        }); 
         const d = await r.json(); 
+        
         if (d.status === "closed") { 
             alert(`🔥 Deal Closed! ₹${amount.toLocaleString('en-IN')} added to Total Income. Target Closer!`); 
             setLeads(prev => prev.filter(l => l.Profile_URL !== lead.Profile_URL)); 
-            await fetchIncome(); await fetchLogs(); 
+            await fetchIncome(); 
+            await fetchLogs(); 
+        } else {
+             alert(d.error || "Failed to close deal.");
         }
     } 
     
@@ -59,24 +88,40 @@ export default function Home() {
         if (!withdrawAmount || !upi) return alert("Amount and UPI required");
         const currentWallet = income.wallet || 0;
         if (Number(withdrawAmount) > currentWallet) return alert(`Insufficient funds. Max withdrawable: ₹${currentWallet.toLocaleString('en-IN')}`);
-        const r = await fetch("/api/withdraw", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: Number(withdrawAmount), upi }), }); 
+        
+        const r = await fetch("/api/withdraw", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ amount: Number(withdrawAmount), upi }), 
+        }); 
         const d = await r.json(); 
+        
         if (d.error) alert(d.error); 
         else { 
             alert(d.message || "Withdraw request saved"); 
-            setWithdrawAmount(""); setUpi(""); 
-            fetchLogs(); fetchIncome(); 
+            setWithdrawAmount(""); 
+            setUpi(""); 
+            fetchLogs(); 
+            fetchIncome(); 
         } 
     } 
     
     async function fetchLogs() { 
-        const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "getLogs" }), }); 
+        const r = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "getLogs" }), 
+        }); 
         const d = await r.json(); 
         setLogs(d.logs || []); 
     } 
     
     async function runFollowupsNow() { 
-        const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "runFollowups" }), }); 
+        const r = await fetch("/api/generate", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ action: "runFollowups" }), 
+        }); 
         const d = await r.json(); 
         alert("Followups processed: " + (d.results?.length || 0) + ". Check logs."); 
         fetchLogs(); 
@@ -153,6 +198,44 @@ export default function Home() {
                         <button onClick={requestWithdraw} className="w-full bg-purple-600 text-white py-2 rounded text-sm">Request Withdraw</button> 
                         <div className="mt-4 text-xs text-gray-600"> 
                             Note: **MANUAL TRANSFER REQUIRED.** Data is saved temporarily.
+                        </div> 
+                    </aside> 
+                </section> 
+                
+                {/* Logs Section */}
+                <section className="mt-6 bg-white p-4 sm:p-6 rounded shadow"> 
+                    <h2 className="text-lg sm:text-xl font-semibold mb-3">Recent Logs (Deals & Messages)</h2> 
+                    <div className="space-y-2 max-h-80 overflow-y-auto"> 
+                        {logs.map(l => ( 
+                            <div key={l.id} className={`p-3 rounded border text-sm ${l.type === "Deal Closed (Manual)" ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'}`}> 
+                                <div className="flex justify-between items-center"> 
+                                    <div> 
+                                        <div className="font-semibold">{l.business?.name || l.phone}</div> 
+                                        <div className="text-xs text-gray-500">{new Date(l.createdAt).toLocaleString()}</div> 
+                                    </div> 
+                                    <div className={`text-xs font-bold ${l.type === "Deal Closed (Manual)" ? 'text-red-700' : 'text-gray-600'}`}>
+                                        {l.type === "Deal Closed (Manual)" ? `DEAL CLOSED: ₹${l.amount.toLocaleString('en-IN')}` : `FollowUps: ${l.followUpCount} ${l.done ? " (Done)" : ""}`}
+                                    </div>
+                                </div> 
+                                {l.initialMessage && (
+                                    <div className="mt-2 text-xs text-gray-700">
+                                        Msg 1: {l.initialMessage?.slice(0,100)}...
+                                    </div> 
+                                )}
+                            </div> 
+                        ))} 
+                        {logs.length===0 && <div className="text-gray-500 p-4 text-center">No logs yet.</div>} 
+                    </div> 
+                </section> 
+
+                <footer className="mt-6 text-center text-sm text-gray-500">
+                    Deployed on Vercel with File System Storage (Ephemeral Data).
+                </footer> 
+            </div> 
+        </div> 
+    );
+} 
+             Note: **MANUAL TRANSFER REQUIRED.** Data is saved temporarily.
                         </div> 
                     </aside> 
                 </section> 
