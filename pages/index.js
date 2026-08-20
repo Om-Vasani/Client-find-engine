@@ -6,7 +6,6 @@ export default function Home() {
   const [category, setCategory] = useState("");
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [leads, setLeads] = useState([]);
   const [sending, setSending] = useState(null);
 
   useEffect(() => {
