@@ -1,22 +1,18 @@
-// pages/api/generate.js
 import axios from "axios";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+export const config = {
+  maxDuration: 30,
+};
 
 export default async function handler(req, res) {
   try {
-    // -------------------------
-    // GET METHOD
-    // -------------------------
     if (req.method === "GET") {
-      return res.json({
+      return res.status(200).json({
         status: "API is running",
         supportedActions: ["scrape", "aiMessage", "send"],
       });
     }
 
-    // -------------------------
-    // POST METHOD
-    // -------------------------
     if (req.method === "POST") {
       const { action, city, category, business, phone, message } = req.body;
 
@@ -24,88 +20,81 @@ export default async function handler(req, res) {
       // 1) GOOGLE MAPS SCRAPER
       // -------------------------
       if (action === "scrape") {
+        if (!category || !city) {
+          return res.status(400).json({ error: "Category and city are required" });
+        }
+
         const q = `${category} in ${city}`;
         const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(
           q
-        )}&api_key=${process.env.SERPAPI_KEY}`;
+        )}&api_key=${process.env.SERPAPI_API_KEY}`;
 
         const response = await axios.get(url);
         const results = response.data.local_results || [];
 
         const leads = results.map((b) => ({
-          name: b.title,
-          rating: b.rating,
-          address: b.address,
-          phone: b.phone,
-          website: b.website,
+          name: b.title || "",
+          rating: b.rating || "N/A",
+          address: b.address || "",
+          phone: b.phone || "",
+          website: b.website || "",
         }));
 
-        return res.json({ leads });
+        return res.status(200).json({ leads });
       }
 
       // -------------------------
-      // 2) AI MESSAGE GENERATION
+      // 2) AI MESSAGE GENERATION (GROQ)
       // -------------------------
       if (action === "aiMessage") {
-        const prompt = `
-Business Info:
-Name: ${business.name}
-Address: ${business.address}
-Rating: ${business.rating}
+        if (!business) {
+          return res.status(400).json({ error: "Business details missing" });
+        }
 
-Write a short, high-converting WhatsApp outreach message for selling digital services.
+          // Request body માંથી યુઝરની ડાયનેમિક ડિટેલ્સ મેળવો
+           const { senderName, agencyName } = req.body;
+
+  const prompt = `
+Business Info:
+Name: ${business.name || "N/A"}
+Address: ${business.address || "N/A"}
+Rating: ${business.rating || "N/A"}
+
+Sender Info:
+Agency Name: ${agencyName || "our agency"}
+Sender Name: ${senderName || "there"}
+
+Write a short, direct WhatsApp outreach message in under 70 words without placeholders. Do not use generic bracket texts like [Your Name] or [Your Agency]. Use the Sender Info provided above directly in the text. Include a simple Call to Action.
 `;
 
         let messageText = "";
 
         try {
-          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-          const result = await model.generateContent(prompt);
-          messageText = result.response.text();
-        } catch (err) {
-          console.log("Gemini failed → using OpenAI...", err.message);
-          const aiRes = await axios.post(
-            "https://api.openai.com/v1/chat/completions",
+          if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY missing");
+
+          // Groq API Call (Llama 3 Model)
+          const groqRes = await axios.post(
+            "https://api.groq.com/openai/v1/chat/completions",
             {
-              model: "gpt-4o-mini",
+              model: "openai/gpt-oss-120b",
               messages: [{ role: "user", content: prompt }],
             },
             {
-              headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+              headers: {
+                Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json",
+              },
             }
           );
-          messageText = aiRes.data.choices[0].message.content;
+
+          messageText = groqRes.data.choices[0].message.content;
+        } catch (err) {
+          console.error("Groq Error:", err.response?.data || err.message);
+          return res.status(500).json({
+            error: "Groq AI failed to generate response",
+            details: err.response?.data || err.message,
+          });
         }
 
-        return res.json({ message: messageText });
+        return res.status(200).json({ message: messageText });
       }
-
-      // -------------------------
-      // 3) SEND MESSAGE (WATI)
-      // -------------------------
-      if (action === "send") {
-        const send = await axios.post(
-          "https://app-server.wati.io/api/v1/sendMessage",
-          {
-            messageText: message,
-            phoneNumber: phone,
-          },
-          {
-            headers: { Authorization: `Bearer ${process.env.WATI_KEY}` },
-          }
-        );
-
-        return res.json({ status: "sent", data: send.data });
-      }
-
-      return res.status(400).json({ error: "Invalid action" });
-    }
-
-    // If method is not GET or POST
-    res.status(405).json({ error: "Method Not Allowed" });
-  } catch (error) {
-    console.error("API Error:", error);
-    return res.status(500).json({ error: "Server Error", details: error.message });
-  }
-    }
