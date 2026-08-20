@@ -1,5 +1,5 @@
 // pages/index.js
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [city, setCity] = useState("");
