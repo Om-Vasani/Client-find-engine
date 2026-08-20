@@ -1,226 +1,141 @@
-import { useState, useEffect } from "react";
-import Link from "next/link";
+// pages/index.js
+import { useState } from "react";
 
 export default function Home() {
-  const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(null);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [leads, setLeads] = useState([]);
+  const [sending, setSending] = useState(null);
 
-  useEffect(() => {
-    const savedLeads = sessionStorage.getItem("client-find-leads");
-    if (savedLeads) {
-      setLeads(JSON.parse(savedLeads));
-      setHasSearched(true);
-    }
-  }, []);
+  useEffect(() => {
+    const savedLeads = sessionStorage.getItem("client-find-leads");
+    if (savedLeads) setLeads(JSON.parse(savedLeads));
+  }, []);
 
-  const fetchLeads = async (e) => {
-    e?.preventDefault();
-    if (!city || !category) {
-      alert("Please enter both city and category");
-      return;
-    }
+  const handleSendFromUserNumber = async (lead, index) => {
+    setSending(index);
+    try {
+      // ૧. Signup/Profile માંથી સાઇન-ઇન યુઝરની ડિટેલ્સ મેળવો
+      const savedProfile = JSON.parse(
+        localStorage.getItem("client-find-profile") ||
+        sessionStorage.getItem("client-find-profile") || "{}"
+      );
 
-    setLoading(true);
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "scrape",
-          city,
-          category,
-        }),
-      });
+      const senderName = savedProfile.username || "";
+      const agencyName = savedProfile.agencyName || "";
 
-      const data = await res.json();
+      // ૨. Groq AI પાસે Real Name & Agency સાથે મેસેજ બનાવડાવો
+      const messageResponse = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "aiMessage",
+          business: lead,
+          senderName: senderName,
+          agencyName: agencyName
+        }),
+      });
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch leads");
-      }
+      const messageData = await messageResponse.json();
+      if (!messageResponse.ok) throw new Error(messageData.error || "Message generation failed");
 
-      const fetchedLeads = data.leads || [];
-      setLeads(fetchedLeads);
-      sessionStorage.setItem("client-find-leads", JSON.stringify(fetchedLeads));
-      setHasSearched(true);
+      // ૩. Receiver (Lead) ના નંબરને Clean ફોર્મેટમાં ફેરવો (Country Code 91 સાથે)
+      let leadPhone = (lead.phone || "").replace(/[^0-9]/g, "");
 
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "Error fetching leads");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (leadPhone.length === 10) {
+        leadPhone = `91${leadPhone}`; // ઇન્ડિયન નંબર માટે 91 ઉમેરવું
+      }
 
-  const handleSendFromUserNumber = async (lead, index) => {
-    setSending(index);
-    try {
-      const savedProfile = JSON.parse(
-        localStorage.getItem("client-find-profile") ||
-        sessionStorage.getItem("client-find-profile") || "{}"
-      );
+      if (!leadPhone) {
+        alert("This lead does not have a valid phone number!");
+        return;
+      }
 
-      const senderName = savedProfile.username || "";
-      const agencyName = savedProfile.agencyName || "";
+      // ૪. Receiver ના નંબર પર યુઝરના પોતાના WhatsApp માંથી મેસેજ ઓપન થશે
+      const encodedText = encodeURIComponent(messageData.message);
+      const whatsappUrl = `https://wa.me/${leadPhone}?text=${encodedText}`;
 
-      const messageResponse = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "aiMessage",
-          business: lead,
-          senderName: senderName,
-          agencyName: agencyName,
-        }),
-      });
+      window.open(whatsappUrl, "_blank");
 
-      const messageData = await messageResponse.json();
-      if (!messageResponse.ok) {
-        throw new Error(messageData.error || "Message generation failed");
-      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Failed to process message");
+    } finally {
+      setSending(null);
+    }
+  };
+  
+  return (
+    <div style={{ padding: 20 }}>
+      <h1 style={{ marginBottom: 20 }}>Client Find Engine</h1>
 
-      let leadPhone = (lead.phone || "").replace(/[^0-9]/g, "");
+      <input
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+        placeholder="City (ex: Ahmedabad)"
+        style={{
+          padding: 12,
+          width: "100%",
+          border: "1px solid #ccc",
+          marginBottom: 10,
+        }}
+      />
 
-      if (leadPhone.length === 10) {
-        leadPhone = `91${leadPhone}`;
-      }
+      <input
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        placeholder="Category (Salon, Spa, Dentist...)"
+        style={{
+          padding: 12,
+          width: "100%",
+          border: "1px solid #ccc",
+          marginBottom: 10,
+        }}
+      />
 
-      if (!leadPhone) {
-        alert("This lead does not have a valid phone number!");
-        return;
-      }
+      <button
+        onClick={fetchLeads}
+        style={{
+          padding: 12,
+          background: "black",
+          color: "white",
+          width: "100%",
+        }}
+      >
+        Find Leads
+      </button>
 
-      const encodedText = encodeURIComponent(messageData.message);
-      const whatsappUrl = `https://wa.me/${leadPhone}?text=${encodedText}`;
+      {loading && <p>Loading...</p>}
 
-      window.open(whatsappUrl, "_blank");
+      {leads.map((lead, idx) => (
+        <div className="lead-grid">
+            {leads.map((lead, index) => (
+              <article className="lead-card" key={`${lead.name}-${index}`}>
+                <h3>{lead.name}</h3>
+                <p className="lead-meta">{lead.address || "No address available"}</p>
+                <p className="lead-meta">Rating: {lead.rating || "N/A"}</p>
+                <p className="lead-meta">Phone: {lead.phone || "No phone available"}</p>
+                {lead.website && <p className="lead-meta">{lead.website}</p>}
 
-    } catch (error) {
-      console.error(error);
-      alert(error.message || "Failed to process message");
-    } finally {
-      setSending(null);
-    }
-  };
+                <button
+                  className="button button-primary lead-action"
+                  onClick={() => handleSendFromUserNumber(lead, index)}
+                  disabled={!lead.phone || sending === index}
+                >
+                  {sending === index
+                    ? "Generating Message..."
+                    : !lead.phone
+                      ? "No Phone Number"
+                      : "Send via WhatsApp"}
+                </button>
+              </article>
+            ))}
+          </div>
+      ))}
+    </div>
+  );
+  }
 
-  const resetSearch = () => {
-    setHasSearched(false);
-    setLeads([]);
-    sessionStorage.removeItem("client-find-leads");
-  };
-
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <Link className="brand" href="/landing">
-          <span className="brand-mark">C</span> Client Find Engine
-        </Link>
-        <nav className="nav">
-          <Link className="nav-link" href="/profile">
-            Profile
-          </Link>
-        </nav>
-      </header>
-
-      <main className="container">
-        {!hasSearched ? (
-          <section className="panel">
-            <div className="page-heading">
-              <div className="eyebrow">Search Leads</div>
-              <h1>Find local businesses to target.</h1>
-              <p>Enter a city and category to scrape local leads for your outreach.</p>
-            </div>
-
-            <form className="form-grid" onSubmit={fetchLeads}>
-              <div className="field">
-                <label htmlFor="city">City</label>
-                <input
-                  id="city"
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Surat, Ahmedabad"
-                  required
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="category">Category</label>
-                <input
-                  id="category"
-                  type="text"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. Spa, Salon, Dentist"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="button button-primary"
-                disabled={loading}
-              >
-                {loading ? "Searching Leads..." : "Find Leads"}
-              </button>
-            </form>
-          </section>
-        ) : (
-          <div>
-            <div className="results-header">
-              <div>
-                <div className="eyebrow">Your shortlist</div>
-                <h1>Search results</h1>
-              </div>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <span className="results-count">
-                  {leads.length} {leads.length === 1 ? "lead" : "leads"} found
-                </span>
-                <button className="button" onClick={resetSearch}>
-                  New Search
-                </button>
-              </div>
-            </div>
-
-            {leads.length === 0 ? (
-              <div className="empty-state">
-                <h3>No leads found</h3>
-                <p>Try running a search with a different city or category.</p>
-                <button className="button button-primary" onClick={resetSearch}>
-                  Start new search
-                </button>
-              </div>
-            ) : (
-              <div className="lead-grid">
-                {leads.map((lead, index) => (
-                  <article className="lead-card" key={`${lead.name}-${index}`}>
-                    <h3>{lead.name}</h3>
-                    <p className="lead-meta">{lead.address || "No address available"}</p>
-                    <p className="lead-meta">Rating: {lead.rating || "N/A"}</p>
-                    <p className="lead-meta">Phone: {lead.phone || "No phone available"}</p>
-                    {lead.website && <p className="lead-meta">{lead.website}</p>}
-
-                    <button
-                      className="button button-primary lead-action"
-                      onClick={() => handleSendFromUserNumber(lead, index)}
-                      disabled={!lead.phone || sending === index}
-                    >
-                      {sending === index
-                        ? "Generating Message..."
-                        : !lead.phone
-                        ? "No Phone Number"
-                        : "Send via WhatsApp"}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
+  
