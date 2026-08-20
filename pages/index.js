@@ -12,7 +12,35 @@ export default function Home() {
     const savedLeads = sessionStorage.getItem("client-find-leads");
     if (savedLeads) setLeads(JSON.parse(savedLeads));
   }, []);
+  const fetchLeads = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
 
+    if (!city || !category) {
+      alert("Please enter both city and category.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "scrape", city, category }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch leads");
+
+      const fetchedLeads = data.leads || [];
+      setLeads(fetchedLeads);
+      sessionStorage.setItem("client-find-leads", JSON.stringify(fetchedLeads));
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Error fetching leads");
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleSendFromUserNumber = async (lead, index) => {
     setSending(index);
     try {
